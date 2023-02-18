@@ -248,6 +248,22 @@ typedef struct {
 audio_element_handle_t i2s_stream_init(i2s_stream_cfg_t *config);
 
 /**
+ * @brief      Create a handle to an Audio Element to stream data from I2S to another Element
+ *             or get data from other elements sent to I2S, depending on the configuration of stream type
+ *             is AUDIO_STREAM_READER or AUDIO_STREAM_WRITER.
+ * @note       If I2S stream is enabled with built-in DAC mode, please don't use I2S_NUM_1. The built-in
+ *             DAC functions are only supported on I2S0 for the current ESP32 chip.
+ * @param      config  The configuration
+ *
+ * @param      i2s_preinstalled  Boolean that indicates if the i2s device is already installed
+                                 and does not need to be re-installed. Typically when both a reader
+ *                               and a writer element are used together.
+ *
+ * @return     The Audio Element handle
+ */
+audio_element_handle_t i2s_stream_init_driver(i2s_stream_cfg_t *config, bool i2s_preinstalled);
+
+/**
  * @brief      Setup clock for I2S Stream, this function is only used with handle created by `i2s_stream_init`
  *
  * @param[in]  i2s_stream   The i2s element handle

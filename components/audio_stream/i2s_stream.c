@@ -340,6 +340,11 @@ int i2s_alc_volume_get(audio_element_handle_t i2s_stream, int *volume)
 
 audio_element_handle_t i2s_stream_init(i2s_stream_cfg_t *config)
 {
+    return i2s_stream_init_driver(config, false);
+}
+
+audio_element_handle_t i2s_stream_init_driver(i2s_stream_cfg_t *config, bool i2s_preinstalled)
+{
     audio_element_cfg_t cfg = DEFAULT_AUDIO_ELEMENT_CONFIG();
     audio_element_handle_t el;
     cfg.open = _i2s_open;
@@ -370,10 +375,12 @@ audio_element_handle_t i2s_stream_init(i2s_stream_cfg_t *config)
         cfg.write = _i2s_write;
     }
 
-    esp_err_t ret = i2s_driver_install(i2s->config.i2s_port, &i2s->config.i2s_config, 0, NULL);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        audio_free(i2s);
-        return NULL;
+    if (! i2s_preinstalled) {
+        esp_err_t ret = i2s_driver_install(i2s->config.i2s_port, &i2s->config.i2s_config, 0, NULL);
+        if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+            audio_free(i2s);
+            return NULL;
+        }
     }
 
     el = audio_element_init(&cfg);
