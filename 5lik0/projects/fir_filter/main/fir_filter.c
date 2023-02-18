@@ -14,6 +14,8 @@
 #include "audio_pipeline.h"
 #include "i2s_stream.h"
 #include "es8388.h"
+#include "esp_peripherals.h"
+#include "periph_button.h"
 
 #include "board.h"
 #include "filter.h"
@@ -27,6 +29,7 @@ void app_main(void)
     audio_element_handle_t i2s_stream_writer;
     audio_element_handle_t i2s_stream_reader;
     audio_element_handle_t fir_filter_el;
+    int player_volume;
 
     esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set(FIRTAG, ESP_LOG_DEBUG);
@@ -37,6 +40,9 @@ void app_main(void)
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START); 
     es8388_config_adc_input(ADC_INPUT_LINPUT2_RINPUT2);
     es8388_write_reg(ES8388_ADCCONTROL10, 0x00); // turn off ALC
+
+    audio_hal_get_volume(board_handle->audio_hal, &player_volume);
+
 
     ESP_LOGI(FIRTAG, "[ 2 ] Create audio pipeline for playback");
     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
@@ -76,17 +82,30 @@ void app_main(void)
         ESP_LOGW(FIRTAG, "Pipeline Link Succeeded.");
     }
 
-    ESP_LOGI(FIRTAG, "[ 4 ] Set up  event listener");
+    ESP_LOGI(FIRTAG, "[ 4 ] Initialize peripherals");
+    esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+    // TODO: the following gives an error in the log, although it seems to work
+    // gpio_install_isr_service(449): GPIO isr service already installed
+    esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
+
+    ESP_LOGI(FIRTAG, "[4.1] Initialize keys on board");
+    audio_board_key_init(set);
+
+    ESP_LOGI(FIRTAG, "[ 5 ] Set up  event listener");
     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
     audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);
 
-    ESP_LOGI(FIRTAG, "[4.1] Listening event from all elements of pipeline");
+    ESP_LOGI(FIRTAG, "[5.1] Listening event from all elements of pipeline");
     audio_pipeline_set_listener(pipeline, evt);
 
-    ESP_LOGI(FIRTAG, "[ 5 ] Start audio_pipeline");
+    ESP_LOGI(FIRTAG, "[5.2] Listening event from peripherals");
+    audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
+
+    ESP_LOGI(FIRTAG, "[ 6 ] Start audio_pipeline");
     audio_pipeline_run(pipeline);
 
-    ESP_LOGI(FIRTAG, "[ 6 ] Listen for all pipeline events");
+
+    ESP_LOGI(FIRTAG, "[ 7 ] Listen for all pipeline events");
     while (1) {
         audio_event_iface_msg_t msg;
         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
@@ -102,6 +121,33 @@ void app_main(void)
             ESP_LOGW(FIRTAG, "[ * ] Stop event received");
             break;
         }
+
+        if ((msg.source_type == PERIPH_ID_TOUCH || msg.source_type == PERIPH_ID_BUTTON || msg.source_type == PERIPH_ID_ADC_BTN)
+            && (msg.cmd == PERIPH_BUTTON_PRESSED)) {
+
+            if ((int) msg.data == get_input_mode_id()) {
+                ESP_LOGI(FIRTAG, "[ * ] [mode] tap event");
+                toggle_filter();
+            } else if ((int) msg.data == get_input_volup_id()) {
+                ESP_LOGI(FIRTAG, "[ * ] [Vol+] touch tap event");
+                player_volume += 10;
+                if (player_volume > 100) {
+                    player_volume = 100;
+                }
+                audio_hal_set_volume(board_handle->audio_hal, player_volume);
+                ESP_LOGI(FIRTAG, "[ * ] Volume set to %d %%", player_volume);
+            } else if ((int) msg.data == get_input_voldown_id()) {
+                ESP_LOGI(FIRTAG, "[ * ] [Vol-] touch tap event");
+                player_volume -= 10;
+                if (player_volume < 0) {
+                    player_volume = 0;
+                }
+                audio_hal_set_volume(board_handle->audio_hal, player_volume);
+                ESP_LOGI(FIRTAG, "[ * ] Volume set to %d %%", player_volume);
+            }
+        }
+
+
     }
 
     ESP_LOGI(FIRTAG, "[ 7 ] Stop audio_pipeline");
