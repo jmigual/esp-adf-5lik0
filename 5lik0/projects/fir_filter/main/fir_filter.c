@@ -40,6 +40,7 @@ void app_main(void)
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START); 
     es8388_config_adc_input(ADC_INPUT_LINPUT2_RINPUT2);
     es8388_write_reg(ES8388_ADCCONTROL10, 0x00); // turn off ALC
+    es8388_write_reg(ES8388_ADCCONTROL14, 0b11111011); // noise gate
 
     audio_hal_get_volume(board_handle->audio_hal, &player_volume);
 
