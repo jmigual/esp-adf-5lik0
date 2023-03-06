@@ -1,4 +1,4 @@
 
 #include "static.h"
 
-const char *FIRTAG = "FIR-FILTER";
+const char *FIRTAG = "MAIN";

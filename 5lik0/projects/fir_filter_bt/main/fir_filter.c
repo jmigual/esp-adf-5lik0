@@ -15,9 +15,9 @@
 #include "i2s_stream.h"
 #include "es8388.h"
 #include "esp_peripherals.h"
-#include "periph_touch.h"
+// #include "periph_touch.h"
 #include "periph_button.h"
-#include "periph_adc_button.h"
+// #include "periph_adc_button.h"
 #include "audio_mem.h"
 #include "bluetooth_service.h"
 #include "nvs_flash.h"
@@ -49,7 +49,7 @@ void app_main(void)
     audio_element_handle_t bt_stream_reader;
     audio_element_handle_t i2s_stream_writer;
     audio_element_handle_t fir_filter_el;
-    int player_volume;
+    int player_volume = 100;
 
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -77,6 +77,7 @@ void app_main(void)
     // es8388_write_reg(ES8388_ADCCONTROL10, 0x00); // turn off ALC
     // es8388_write_reg(ES8388_ADCCONTROL14, 0b11111011); // noise gate
 
+    audio_hal_set_volume(board_handle->audio_hal, player_volume);
     audio_hal_get_volume(board_handle->audio_hal, &player_volume);
 
 
@@ -94,12 +95,8 @@ void app_main(void)
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
 
     ESP_LOGI(FIRTAG, "[3.3] Create FIR Filter Element");
-    audio_element_cfg_t fir_cfg = DEFAULT_AUDIO_ELEMENT_CONFIG();
-    // Set filter callback functions
-    fir_cfg.open = filter_open;
-    fir_cfg.process = filter_process;
-    fir_cfg.tag = "fir_filter";
-    fir_filter_el = audio_element_init(&fir_cfg);
+    filter_cfg_t filter_cfg = DEFAULT_FILTER_CONFIG();
+    fir_filter_el = filter_init(&filter_cfg);
 
     ESP_LOGI(FIRTAG, "[3.4] Register all elements to audio pipeline");
     audio_pipeline_register(pipeline, bt_stream_reader, "bt");
@@ -172,11 +169,11 @@ void app_main(void)
         }
 
         if ((msg.source_type == PERIPH_ID_TOUCH || msg.source_type == PERIPH_ID_BUTTON || msg.source_type == PERIPH_ID_ADC_BTN)
-            && (msg.cmd == PERIPH_TOUCH_TAP || msg.cmd == PERIPH_BUTTON_PRESSED || msg.cmd == PERIPH_ADC_BUTTON_PRESSED)) {
+            && (msg.cmd == PERIPH_BUTTON_PRESSED)) {
 
             if ((int) msg.data == get_input_mode_id()) {
                 ESP_LOGI(FIRTAG, "[ * ] [mode] tap event");
-                toggle_filter();
+                toggle_filter(fir_filter_el);
             } else if ((int) msg.data == get_input_volup_id()) {
                 ESP_LOGI(FIRTAG, "[ * ] [Vol+] touch tap event");
                 player_volume += 10;
@@ -196,7 +193,9 @@ void app_main(void)
             } else if ((int) msg.data == get_input_set_id()) {
                 ESP_LOGI(FIRTAG, "[ * ] [Set] touch tap event");
                 periph_bluetooth_next(bt_periph);
-            }
+            } else if ((int) msg.data == get_input_play_id()) {
+                ESP_LOGI(FIRTAG, "[ * ] [Play] touch tap event");
+                periph_bluetooth_play(bt_periph);}
         }
 
     }
