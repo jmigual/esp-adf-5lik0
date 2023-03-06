@@ -8,23 +8,21 @@
 */
 
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_log.h"
 #include "audio_pipeline.h"
 #include "i2s_stream.h"
-#include "es8388.h"
 #include "esp_peripherals.h"
-// #include "periph_touch.h"
 #include "periph_button.h"
-// #include "periph_adc_button.h"
 #include "audio_mem.h"
 #include "bluetooth_service.h"
 #include "nvs_flash.h"
-
 #include "board.h"
+#include <esp_avrc_api.h>
+
 #include "filter.h"
 #include "static.h"
+
+bool bt_playing = false;
 
 static void bt_app_avrc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t *p_param)
 {
@@ -35,6 +33,17 @@ static void bt_app_avrc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param
             memcpy(tmp, rc->meta_rsp.attr_text, rc->meta_rsp.attr_length);
             ESP_LOGI(FIRTAG, "AVRC metadata rsp: attribute id 0x%x, %s", rc->meta_rsp.attr_id, tmp);
             audio_free(tmp);
+            break;
+        }
+        case ESP_AVRC_CT_CHANGE_NOTIFY_EVT: {
+            if (rc->change_ntf.event_id == ESP_AVRC_RN_PLAY_STATUS_CHANGE) {
+                if (rc->change_ntf.event_parameter.playback == ESP_AVRC_PLAYBACK_PLAYING) {
+                    bt_playing = true;
+                } else if (rc->change_ntf.event_parameter.playback == ESP_AVRC_PLAYBACK_STOPPED 
+                        || rc->change_ntf.event_parameter.playback == ESP_AVRC_PLAYBACK_PAUSED) {
+                    bt_playing = false;
+                }
+            }
             break;
         }
         default:
@@ -73,9 +82,6 @@ void app_main(void)
     ESP_LOGI(FIRTAG, "[ 2 ] Start codec chip");
     audio_board_handle_t board_handle = audio_board_init();
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START); 
-    // es8388_config_adc_input(ADC_INPUT_LINPUT2_RINPUT2);
-    // es8388_write_reg(ES8388_ADCCONTROL10, 0x00); // turn off ALC
-    // es8388_write_reg(ES8388_ADCCONTROL14, 0b11111011); // noise gate
 
     audio_hal_set_volume(board_handle->audio_hal, player_volume);
     audio_hal_get_volume(board_handle->audio_hal, &player_volume);
@@ -141,7 +147,6 @@ void app_main(void)
     ESP_LOGI(FIRTAG, "[ 6 ] Start audio_pipeline");
     audio_pipeline_run(pipeline);
 
-
     ESP_LOGI(FIRTAG, "[ 7 ] Listen for all pipeline events");
     while (1) {
         audio_event_iface_msg_t msg;
@@ -195,7 +200,13 @@ void app_main(void)
                 periph_bluetooth_next(bt_periph);
             } else if ((int) msg.data == get_input_play_id()) {
                 ESP_LOGI(FIRTAG, "[ * ] [Play] touch tap event");
-                periph_bluetooth_play(bt_periph);}
+
+                if (bt_playing) {
+                    periph_bluetooth_pause(bt_periph);
+                } else {
+                    periph_bluetooth_play(bt_periph);
+                }
+            }
         }
 
     }
