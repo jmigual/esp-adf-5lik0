@@ -16,35 +16,17 @@
 #include "es8388.h"
 #include "esp_peripherals.h"
 #include "periph_button.h"
-#include "bluetooth_service.h"
 
 #include "board.h"
 #include "filter.h"
 #include "static.h"
 
-static const char *TAG = "ESP_BOARD";
-
-static void bt_app_avrc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t *p_param)
-{
-    esp_avrc_ct_cb_param_t *rc = p_param;
-    switch (event) {
-        case ESP_AVRC_CT_METADATA_RSP_EVT: {
-            uint8_t *tmp = audio_calloc(1, rc->meta_rsp.attr_length + 1);
-            memcpy(tmp, rc->meta_rsp.attr_text, rc->meta_rsp.attr_length);
-            ESP_LOGI(TAG, "AVRC metadata rsp: attribute id 0x%x, %s", rc->meta_rsp.attr_id, tmp);
-            audio_free(tmp);
-            break;
-        }
-        default:
-            break;
-    }
-}
 
 void app_main(void)
 {
     audio_pipeline_handle_t pipeline;
 
-    audio_element_handle_t bt_stream_reader;
+    audio_element_handle_t i2s_stream_writer;
     audio_element_handle_t i2s_stream_reader;
     audio_element_handle_t fir_filter_el;
     int player_volume;
@@ -52,21 +34,13 @@ void app_main(void)
     esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set(FIRTAG, ESP_LOG_DEBUG);
 
-    ESP_LOGI(TAG, "[ 1 ] Create Bluetooth service");
-    bluetooth_service_cfg_t bt_cfg = {
-        .device_name = "ESP-ADF-SPEAKER",
-        .mode = BLUETOOTH_A2DP_SINK,
-        .user_callback.user_avrc_ct_cb = bt_app_avrc_ct_cb,
-    };
-    bluetooth_service_start(&bt_cfg);
-
-    ESP_LOGI(FIRTAG, "[ 2 ] Start codec chip");
+    ESP_LOGI(FIRTAG, "[ 1 ] Start codec chip");
     audio_board_handle_t board_handle = audio_board_init();
 
-    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START); 
-    // es8388_config_adc_input(ADC_INPUT_LINPUT2_RINPUT2);
-    // es8388_write_reg(ES8388_ADCCONTROL10, 0x00); // turn off ALC
-    // es8388_write_reg(ES8388_ADCCONTROL14, 0b11111011); // noise gate
+    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START); 
+    es8388_config_adc_input(ADC_INPUT_LINPUT2_RINPUT2);
+    es8388_write_reg(ES8388_ADCCONTROL10, 0x00); // turn off ALC
+    es8388_write_reg(ES8388_ADCCONTROL14, 0b11111011); // noise gate
 
     audio_hal_get_volume(board_handle->audio_hal, &player_volume);
 
