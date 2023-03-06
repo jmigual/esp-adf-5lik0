@@ -12,10 +12,22 @@ CONFIG_ESPTOOLPY_FLASHSIZE_DETECT=y
 CONFIG_ESPTOOLPY_BEFORE_RESET=y
 # end of Serial flasher config
 
-#
 # Partition Table
-#
+# Increase default app partition size to accommodate BT
+# by providing new partition table in "partitions_bt_sink_example.csv"
 CONFIG_PARTITION_TABLE_SINGLE_APP=y
 CONFIG_PARTITION_TABLE_OFFSET=0x8000
 CONFIG_PARTITION_TABLE_MD5=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_bt_sink_example.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_bt_sink_example.csv"
 # end of Partition Table
+
+# Override some defaults so BT stack is enabled and
+# Classic BT is enabled and BT_DRAM_RELEASE is disabled
+CONFIG_BT_ENABLED=y
+CONFIG_BTDM_CONTROLLER_MODE_BTDM=y
+CONFIG_BLUEDROID_ENABLED=y
+CONFIG_CLASSIC_BT_ENABLED=y
+CONFIG_A2DP_ENABLE=y
+CONFIG_A2DP_SINK_TASK_STACK_SIZE=2048
