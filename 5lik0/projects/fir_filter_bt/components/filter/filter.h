@@ -20,7 +20,7 @@ typedef struct {
         .channel        = 1,                         \
         .out_rb_size    = 8 * 1024,                  \
         .task_stack     = 4 * 1024,                  \
-        .task_core      = 0,                         \
+        .task_core      = 1,                         \
         .task_prio      = 5,                         \
     }
 
