@@ -97,11 +97,12 @@ void app_main(void)
     ESP_LOGI(FIRTAG, "[3.2] Create i2s stream to write data to codec chip");
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
     i2s_cfg.type = AUDIO_STREAM_WRITER;
-    // Create the writer stream element reusing the i2s driver of the reader
+    i2s_cfg.task_core = 1;
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
 
     ESP_LOGI(FIRTAG, "[3.3] Create FIR Filter Element");
     filter_cfg_t filter_cfg = DEFAULT_FILTER_CONFIG();
+    filter_cfg.task_core = 1;
     fir_filter_el = filter_init(&filter_cfg);
 
     ESP_LOGI(FIRTAG, "[3.4] Register all elements to audio pipeline");
